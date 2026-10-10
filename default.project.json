@@ -1,0 +1,14 @@
+{
+  "name": "VoidHydraPet",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "VoidHydra": { "$path": "src/ReplicatedStorage/VoidHydra.lua" }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "PetFollower": { "$path": "src/StarterPlayer/StarterPlayerScripts/PetFollower.client.lua" }
+      }
+    }
+  }
+}
