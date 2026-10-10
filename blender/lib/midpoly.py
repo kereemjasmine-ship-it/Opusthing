@@ -357,9 +357,10 @@ class Model:
                     for x in range(slot * CELL, (slot + 1) * CELL):
                         i = (y * PAL_W + x) * 4
                         px[i : i + 4] = (*val, 1.0)
-            img.pixels = px
             if kind != "Color":
+                # set before the pixels: changing a generated image's colour space regenerates it blank
                 img.colorspace_settings.name = "Non-Color"
+            img.pixels = px
             img.filepath_raw = os.path.join(out_dir, "export", f"{self.name}_{kind}.png")
             img.file_format = "PNG"
             img.save()
@@ -403,6 +404,7 @@ class Model:
             bm = self.meshes[name]
             group = name.split("_")[0]
             pivot = self.pivots.get(group, Vector((0, 0, 0)))
+            bm.normal_update()  # merged faces have no normals yet; concave ngons triangulate wrongly without them
             big = [f for f in bm.faces if len(f.verts) > 4]
             if big:
                 bmesh.ops.triangulate(bm, faces=big, quad_method="BEAUTY", ngon_method="BEAUTY")

@@ -10,16 +10,18 @@ Group "Steering" (origin spec.LOWER_CLAMP, turns about spec.STEER_DIR):
   * both hand-brake master cylinders (reservoir, lid, pivot, lever blade), the twist
     throttle housing on the right, the switch pod with the ignition key on the left, a
     small display between the bar clamps
-  * front brake hose from the right lever down the front of the left fork leg, rear brake
-    hose from the left lever into the frame, throttle cable and switch loom
-  * the white front number plate (wrapped round the fork, tilted with it) with the LED
-    headlight set into it, and its mounting straps
+  * front brake hose from the right lever, across behind the number plate and down the front
+    of the left fork leg; rear brake hose, throttle cable and switch loom from the bar into
+    the front opening of the shroud (smooth runs, no sharp kinks)
+  * the white front number plate (wrapped round the fork, tilted with it, cut lower corners,
+    dipped top edge) with a rectangular LED headlight and running-light strip set into it,
+    and its mounting straps
   * the high white front fender under the lower clamp, ending in a beak at the front
-Group "ForkLowers" (origin spec.FRONT_AXLE, slides along spec.STEER_DIR):
+Group "ForkLowers" (origin spec.FRONT_AXLE, slides up spec.STEER_DIR by up to spec.FORK_TRAVEL):
   * chrome stanchions, machined axle feet with axle pinch bolts
   * black plastic fork guards, the front brake caliper and its bracket on the LEFT leg (+X)
     clasping the front disc behind the axle, the lower brake hose, axle shaft/head/nut
-    (the axle hardware is skipped while parts/wheels.py still models it, see axle())
+    (while spec.FRONT_AXLE_IN_FORK, see axle())
 
 Coordinates: world metres from spec.py (Z up, the bike faces -Y, rider's left is +X).
 Most of the front end is designed in a "steer frame" (see sp()): local x = world X,
@@ -62,13 +64,9 @@ T_TOP = (S.TOP_CLAMP - ORIGIN).dot(UP)  # 0.74
 R_OUT = S.FORK_OUTER_RADIUS
 R_IN = S.FORK_INNER_RADIUS
 
-# Heights below were laid out for clamps at t = 0.66 / 0.84; these shifts keep them with the clamps.
-DT_L = T_LOWER - 0.66  # plate, headlight, fender (hang from the lower clamp)
-DT_T = T_TOP - 0.84  # (top clamp)
-DT_H = (DT_L + DT_T) / 2  # hoses and cables between the bar and the frame's headstock
 
 # Lower clamp spans local z LC0..LC1: its top sits just under the head tube's bottom bearing
-# cup (spec.HEAD_TUBE starts at 0.68, the frame's cup reaches 6 mm below that).
+# cup (spec.HEAD_TUBE starts at T_LOWER + 0.02, the frame's cup reaches 6 mm below that).
 LC0, LC1 = T_LOWER - 0.030, T_LOWER + 0.013
 # Top clamp spans TC0..TC1, just above the head tube's top cup.
 TC0, TC1 = T_TOP - 0.012, T_TOP + 0.018
@@ -208,8 +206,20 @@ def rbox(m, group, size, color, matrix, r=0.004, bevel=0.002, cs=2, segs=1, mirr
     slab(m, group, mp.rounded_rect(size[0], size[1], r, cs), size[2], color, matrix, bevel, segs, mirror)
 
 
+def _newell(loop):
+    """Area normal of a closed 3D loop (its direction follows the loop's winding)."""
+    nrm = Vector()
+    for i in range(len(loop)):
+        a, b = Vector(loop[i]), Vector(loop[(i + 1) % len(loop)])
+        nrm += Vector(((a.y - b.y) * (a.z + b.z), (a.z - b.z) * (a.x + b.x), (a.x - b.x) * (a.y + b.y)))
+    return nrm
+
+
 def skin(m, group, rings, color, mirror=False):
-    """Smooth closed surface through cross-section loops (world points), flat triangulated end caps."""
+    """Smooth closed surface through cross-section loops (world points), flat triangulated end caps.
+
+    Each cap is wound to face away from its neighbouring section, whichever way the loops run.
+    """
     tmp = bmesh.new()
     vs = [[tmp.verts.new(Vector(p)) for p in r] for r in rings]
     n = len(vs[0])
@@ -219,7 +229,14 @@ def skin(m, group, rings, color, mirror=False):
             j1 = (j + 1) % n
             tmp.faces.new((a[j], a[j1], c[j1], c[j]))
     m.commit(group, tmp, color, mirror=mirror, smooth=True, recalc=True)
-    _caps(m, group, [(rings[0], True), (rings[-1], False)], color, mirror)
+
+    def centre(r):
+        return sum((Vector(p) for p in r), Vector()) / len(r)
+
+    out0 = centre(rings[0]) - centre(rings[1])
+    out1 = centre(rings[-1]) - centre(rings[-2])
+    _caps(m, group, [(rings[0], _newell(rings[0]).dot(out0) < 0), (rings[-1], _newell(rings[-1]).dot(out1) < 0)],
+          color, mirror)
 
 
 def bolt(m, group, pos, axis, r=0.005, h=0.005, color="steel", segments=6, mirror=False):
@@ -318,11 +335,12 @@ def top_clamp(m):
 def fork_uppers(m):
     """Gold outer tubes (FORK_SPLIT_T..FORK_TOP_T) with seal housings, dust wipers, caps and adjusters."""
     t0, t1 = S.FORK_SPLIT_T, S.FORK_TOP_T
-    # gold tube: a slightly fatter seal housing at the bottom, then the clamped tube.
-    # The top is left open; the fork cap closes it.
+    # gold tube: a slightly fatter seal housing at the bottom, then the clamped tube, and an inner
+    # wall back down (a closed section, so every face's normal points out of the solid wall)
     gold = [(0.0215, t0 + 0.001), (R_OUT + 0.0013, t0 + 0.001), (R_OUT + 0.0026, t0 + 0.004),
-            (R_OUT + 0.0026, t0 + 0.063), (R_OUT, t0 + 0.076), (R_OUT, t1)]
-    m.lathe(ST, gold, "gold", matrix=leg_m(), segments=20, mirror=True)
+            (R_OUT + 0.0026, t0 + 0.063), (R_OUT, t0 + 0.076), (R_OUT, t1), (R_OUT - 0.002, t1),
+            (0.0215, t0 + 0.006)]
+    m.lathe(ST, gold, "gold", matrix=leg_m(), segments=20, closed=True, mirror=True)
     # black dust wiper hugging the stanchion below the seal housing
     wiper = [(R_IN + 0.0003, t0 - 0.011), (0.0222, t0 - 0.012), (0.0255, t0 - 0.006), (0.0255, t0 + 0.0015)]
     m.lathe(ST, wiper, "black", matrix=leg_m(), segments=16, mirror=True)
@@ -342,8 +360,8 @@ HB_C = S.HANDLEBAR_CENTRE
 HB_HALF = S.HANDLEBAR_HALF_WIDTH
 BAR_R_CLAMP = 0.0143  # 28.6 mm fat-bar centre section
 BAR_R_GRIP = 0.0111  # 22.2 mm at the grips
-G0_OFF = Vector((0.200, 0.018, 0.048))  # start of the straight grip section (offset from the centre)
-G1_OFF = Vector((HB_HALF, 0.036, 0.056))  # bar end: ~56 mm rise, ~36 mm pull-back (low stock bar)
+G0_OFF = Vector((0.200, 0.018, 0.040))  # start of the straight grip section (offset from the centre)
+G1_OFF = Vector((HB_HALF, 0.036, 0.046))  # bar end: ~46 mm rise, ~36 mm pull-back (low stock bar)
 BEND_START = 0.075
 BC_X = 0.040  # risers / bar clamps at x = +-BC_X
 BAR_LOCAL = local(HB_C)  # bar centre in the steer frame
@@ -415,11 +433,11 @@ def master_cylinder(m, side, s_clamp, s_body, s_pivot, s_end):
     """
     g0, d, fwd, up = grip_frame(side)
     m.lathe(ST, [(BAR_R_GRIP, -0.008), (0.0172, -0.008), (0.0172, 0.008), (BAR_R_GRIP, 0.008)], "black",
-            matrix=mp.look(gp(side, s_clamp), d), segments=12)
+            matrix=mp.look(gp(side, s_clamp), d), segments=12, closed=True)
     m.box(ST, (0.014, 0.022, 0.016), "black", matrix=basis(gp(side, s_clamp, 0.016, 0.004), d, fwd), bevel=0.0)
     m.cylinder(ST, 0.0102, 0.042, "black", matrix=mp.look(gp(side, s_body, 0.032, 0.005), d), segments=12)
     rbox(m, ST, (0.036, 0.026, 0.016), "black", basis(gp(side, s_body, 0.027, 0.019), d, fwd), r=0.005)
-    m.box(ST, (0.032, 0.022, 0.0018), "grey", matrix=basis(gp(side, s_body, 0.027, 0.0275), d, fwd), bevel=0.0)
+    m.box(ST, (0.032, 0.022, 0.0018), "grey", matrix=basis(gp(side, s_body, 0.027, 0.0285), d, fwd), bevel=0.0)
     # lever pivot boss and bolt
     lever_dir = (fwd * math.cos(math.radians(22)) - up * math.sin(math.radians(22))).normalized()
     pivot_axis = d.cross(lever_dir).normalized()
@@ -444,8 +462,8 @@ def throttle(m):
     g0, d, fwd, up = grip_frame(-1)
     s0, s1 = 0.022, 0.0585
     prof = [(BAR_R_GRIP + 0.0005, s0), (0.0188, s0), (0.0210, s0 + 0.006), (0.0207, s1 - 0.005), (0.0185, s1),
-            (0.0175, s1)]
-    m.lathe(ST, prof, "black", matrix=mp.look(g0, d), segments=12)
+            (BAR_R_GRIP + 0.0005, s1)]
+    m.lathe(ST, prof, "black", matrix=mp.look(g0, d), segments=12, closed=True)
     boss = gp(-1, s0 + 0.012, 0.010, -0.017)
     m.cylinder(ST, 0.0055, 0.016, "black", matrix=mp.look(boss, (fwd - up * 1.2).normalized()), segments=8)
 
@@ -458,18 +476,19 @@ def switch_pod(m):
         m.cylinder(ST, 0.0042, 0.006, color, matrix=mp.look(gp(1, 0.010, -0.015, du), -fwd), segments=8)
     kb = gp(1, 0.010, 0.010, 0.021)
     m.cylinder(ST, 0.0072, 0.006, "steel", matrix=mp.look(kb, up), segments=8)
-    m.box(ST, (0.016, 0.014, 0.003), "black", matrix=basis(kb + up * 0.011, fwd, up), bevel=0.0)
+    m.box(ST, (0.016, 0.014, 0.003), "black", matrix=basis(kb + up * 0.0095, fwd, up), bevel=0.0)  # key head
 
 
 def display(m):
     """Small LCD display on a stalk from the top clamp, between the bar clamps, facing the rider."""
     base_y = BAR_LOCAL.y - 0.024
-    m.cylinder(ST, 0.0050, 0.052, "black", matrix=sm(0, base_y, TC1 + 0.026), segments=6)
+    m.cylinder(ST, 0.0050, 0.038, "black", matrix=sm(0, base_y, TC1 + 0.019), segments=6)
     tilt = math.radians(55.0)  # the screen leans back towards the rider
     face = sv(0, math.cos(tilt), math.sin(tilt))
-    housing = basis(sp(0, base_y - 0.011, TC1 + 0.064), XAX, face.cross(XAX))  # local Z = screen normal
+    housing = basis(sp(0, base_y - 0.011, TC1 + 0.050), XAX, face.cross(XAX))  # local Z = screen normal
     rbox(m, ST, (0.044, 0.034, 0.016), "black", housing, r=0.007, bevel=0.003)
-    m.box(ST, (0.034, 0.022, 0.002), "grey", matrix=housing @ mp.tr(0, 0.001, 0.0076), bevel=0.0)
+    # the screen stands 2 mm proud of the housing face (no z-fighting)
+    m.box(ST, (0.034, 0.022, 0.002), "grey", matrix=housing @ mp.tr(0, 0.001, 0.0090), bevel=0.0)
 
 
 def controls(m):
@@ -483,30 +502,33 @@ def controls(m):
     display(m)
     for b, d in ((rb, rd), (lb, ld)):  # banjo bolts at the hose ends
         m.cylinder(ST, 0.0058, 0.012, "steel", matrix=mp.look(b - d * 0.005, d), segments=8)
-    # front brake hose: right master cylinder, over the top clamp behind the plate, then down the
-    # front of the left gold tube to a clip on its seal housing
+    # front brake hose: right master cylinder, down in front of the right fork tube, across behind the
+    # number plate (between the clamps) and down the front of the left gold tube to a clip on its
+    # seal housing
     rs = local(rb - rd * 0.004 - ru * 0.004)
-    hose(m, ST, [(rs.x, rs.y, rs.z), (rs.x + 0.030, rs.y - 0.030, rs.z - 0.045), (-0.080, -0.098, 0.890 + DT_T),
-                 (0.0, -0.090, 0.848 + DT_T), (0.068, -0.080, 0.775 + DT_H), (0.088, -0.077, 0.680 + DT_L),
-                 (0.090, -0.067, 0.560 + DT_L), (0.090, -0.066, S.FORK_SPLIT_T)])
-    m.lathe(ST, [(R_OUT + 0.0024, -0.005), (R_OUT + 0.0040, -0.005), (R_OUT + 0.0040, 0.005),
-                 (R_OUT + 0.0024, 0.005)], "black", matrix=leg_m(1, S.FORK_SPLIT_T + 0.045), segments=16)
+    hose(m, ST, [(rs.x, rs.y, rs.z), (rs.x + 0.022, rs.y - 0.018, rs.z - 0.040), (-0.120, -0.062, TC0 - 0.004),
+                 (-0.060, -0.068, 0.690), (0.000, -0.066, 0.660), (0.062, -0.070, 0.620), (0.088, -0.077, 0.570),
+                 (0.090, -0.070, 0.480), (0.090, -0.066, S.FORK_SPLIT_T)], per=4)
+    m.lathe(ST, [(R_OUT + 0.0024, -0.005), (R_OUT + 0.0052, -0.005), (R_OUT + 0.0052, 0.005),
+                 (R_OUT + 0.0024, 0.005)], "black", matrix=leg_m(1, S.FORK_SPLIT_T + 0.045), segments=16,
+            closed=True)
     m.box(ST, (0.012, 0.012, 0.010), "black", matrix=sm(0.090, -0.065, S.FORK_SPLIT_T + 0.045), bevel=0.0)
-    # rear brake hose: left master cylinder, down outside the left fork tube, into the headstock
-    # (its end is buried in the frame's forged headstock behind the head tube)
+    # The other three run down behind the fork tubes beside the head tube, then back over the frame's
+    # headstock (between its top beams) into the front opening of the shroud; their hidden ends are
+    # under the shroud's roof, near the steering axis, so they stay inside it at full lock.
+    # rear brake hose: left master cylinder, outside the left fork tube
     ls = local(lb - ld * 0.004 - lu * 0.004)
-    hose(m, ST, [(ls.x, ls.y, ls.z), (ls.x - 0.020, ls.y - 0.025, ls.z - 0.040), (0.140, -0.050, 0.880 + DT_T),
-                 (0.142, -0.010, 0.800 + DT_H), (0.090, 0.042, 0.770 + DT_H), (0.034, 0.068, 0.745 + DT_H),
-                 (0.022, 0.068, 0.700 + DT_H)])
-    # throttle cable and the switch loom, down behind the clamps into the frame
+    hose(m, ST, [(ls.x, ls.y, ls.z), (ls.x - 0.015, ls.y - 0.012, ls.z - 0.040), (0.160, -0.020, 0.745),
+                 (0.088, 0.036, 0.677), (0.052, 0.068, 0.684), (0.026, 0.100, 0.676)], per=4)
+    # throttle cable (right) and the switch loom (left)
     tb = local(gp(-1, 0.034, 0.012, -0.024))
-    hose(m, ST, [(tb.x, tb.y, tb.z), (tb.x + 0.015, tb.y + 0.010, tb.z - 0.040), (-0.118, 0.012, 0.880 + DT_T),
-                 (-0.096, 0.050, 0.810 + DT_H), (-0.032, 0.074, 0.755 + DT_H), (-0.020, 0.072, 0.700 + DT_H)],
-         radius=0.0032, segments=5)
+    hose(m, ST, [(tb.x, tb.y, tb.z), (tb.x + 0.015, tb.y + 0.010, tb.z - 0.040), (-0.150, 0.010, 0.740),
+                 (-0.078, 0.039, 0.677), (-0.046, 0.068, 0.684), (-0.014, 0.100, 0.676)], per=4, radius=0.0032,
+         segments=5)
     sb = local(gp(1, 0.010, 0.010, -0.020))
-    hose(m, ST, [(sb.x, sb.y, sb.z), (sb.x - 0.010, sb.y + 0.015, sb.z - 0.040), (0.110, 0.030, 0.880 + DT_T),
-                 (0.072, 0.065, 0.800 + DT_H), (0.027, 0.078, 0.760 + DT_H), (0.018, 0.076, 0.700 + DT_H)],
-         radius=0.0032, segments=5)
+    hose(m, ST, [(sb.x, sb.y, sb.z), (sb.x - 0.010, sb.y + 0.015, sb.z - 0.040), (0.135, 0.022, 0.740),
+                 (0.070, 0.046, 0.677), (0.040, 0.072, 0.684), (0.010, 0.100, 0.676)], per=4, radius=0.0032,
+         segments=5)
 
 
 # =============================================================================== Steering: plate, light, fender
@@ -515,8 +537,11 @@ PLATE = local(S.NUMBER_PLATE_CENTRE)
 PLATE_Y = PLATE.y  # front face on the centre line (steer frame)
 PLATE_K = 1.6  # wrap round the fork: the face curves back by PLATE_K * x^2
 PLATE_T = 0.0042
-PLATE_Z0, PLATE_Z1 = 0.597 + DT_L, 0.832 + DT_L  # bottom edge (resting on the fender) and top edge
-PLATE_W0, PLATE_W1 = 0.160, 0.226  # width at the bottom and at the top
+# plate, headlight and fender hang from the lower clamp, so their heights are given relative to it
+PLATE_Z0, PLATE_Z1 = T_LOWER - 0.063, T_LOWER + 0.137  # bottom edge (resting on the fender) and top corners
+PLATE_W0, PLATE_W1 = 0.160, 0.222  # width at the bottom and at the top
+PLATE_CUT = 0.028  # the lower corners are cut off at 45 degrees
+PLATE_DIP = 0.010  # the top edge dips this much in the middle (the top corners stand up as ears)
 
 
 def plate_front(x):
@@ -524,28 +549,39 @@ def plate_front(x):
 
 
 def number_plate(m):
-    """White front number plate: a shield wrapped round the fork, rounded corners, crisp edges."""
-    rb, rt = 0.030, 0.048  # corner radii bottom / top
-    rows = [(PLATE_Z0 + d, rb, d) for d in (0.0, 0.006, 0.016, 0.030)]
-    rows += [(PLATE_Z0 + f * (PLATE_Z1 - PLATE_Z0), rb, 1.0) for f in (0.35, 0.62)]
-    rows += [(PLATE_Z1 - d, rt, d) for d in (0.048, 0.030, 0.016, 0.006, 0.0)]
+    """White front number plate: a shield wrapped round the fork with cut lower corners, a dipped top
+    edge between rounded ears, crisp edges."""
+    rt = 0.034  # top corner radius
+    # (distance from the bottom, or None) / (distance from the top, or None)
+    rows = [(d, None) for d in (0.0, 0.010, PLATE_CUT, PLATE_CUT + 0.008)]
+    rows += [(f * (PLATE_Z1 - PLATE_Z0), None) for f in (0.38, 0.64)]
+    rows += [(None, d) for d in (0.040, 0.026, 0.014, 0.005, 0.0)]
     n = 10
     rings = []
-    for z, r, d in rows:
+    for db, dt in rows:
+        z = PLATE_Z0 + db if db is not None else PLATE_Z1 - dt
         f = (z - PLATE_Z0) / (PLATE_Z1 - PLATE_Z0)
-        wfull = (PLATE_W0 + (PLATE_W1 - PLATE_W0) * f) / 2
-        w = wfull if d >= r else wfull - r + math.sqrt(max(r * r - (r - d) ** 2, 0.0))
+        w = (PLATE_W0 + (PLATE_W1 - PLATE_W0) * f) / 2
+        if db is not None and db < PLATE_CUT:
+            w -= PLATE_CUT - db  # 45 degree cut corner
+        if dt is not None and dt < rt:
+            w = w - rt + math.sqrt(max(rt * rt - (rt - dt) ** 2, 0.0))
+        dip = PLATE_DIP * max(0.0, 1.0 - dt / 0.05) if dt is not None else 0.0
         xs = [w * (2 * i / n - 1) for i in range(n + 1)]
-        front = [(x, plate_front(x), z) for x in xs]
-        back = [(x, plate_front(x) + PLATE_T, z) for x in reversed(xs)]
+
+        def zz(x):
+            return z - dip * (1.0 - (x / w) ** 2)
+
+        front = [(x, plate_front(x), zz(x)) for x in xs]
+        back = [(x, plate_front(x) + PLATE_T, zz(x)) for x in reversed(xs)]
         ye = plate_front(w) + PLATE_T / 2 + 0.0008
         ring = front + [(w + 0.0016, ye, z)] + back + [(-w - 0.0016, ye, z)]
         rings.append([sp(*p) for p in ring])
     skin(m, ST, rings, "white")
     # mounting: rubber straps round the gold tubes with tabs to the plate's back, and a lower tab
-    zt = 0.770 + DT_L
-    m.lathe(ST, [(R_OUT - 0.0002, -0.0045), (R_OUT + 0.0015, -0.004), (R_OUT + 0.0015, 0.004),
-                 (R_OUT - 0.0002, 0.0045)], "rubber", matrix=leg_m(1, zt), segments=16, mirror=True)
+    zt = T_LOWER + 0.110
+    m.lathe(ST, [(R_OUT - 0.0002, -0.0045), (R_OUT + 0.0025, -0.004), (R_OUT + 0.0025, 0.004),
+                 (R_OUT - 0.0002, 0.0045)], "rubber", matrix=leg_m(1, zt), segments=16, closed=True, mirror=True)
     xt = LEG_X + 0.006
     y0 = plate_front(xt) + PLATE_T - 0.002
     y1 = LEG_Y - 0.012
@@ -556,33 +592,35 @@ def number_plate(m):
 
 
 def headlight(m):
-    """LED headlight set into the plate: a black housing following the plate's shield shape, one
-    projector in a chrome reflector bowl and a daytime-running LED strip across its top."""
-    zc = 0.734 + DT_L
-    yf = PLATE_Y - 0.013  # housing front face (steer frame)
-    depth = 0.024
+    """LED headlight set into the plate: a wide black housing, a horizontal rectangular LED lens in a
+    chrome surround, and a daytime-running LED strip across its top. The lens, surround and strip
+    stand 2+ mm proud of what is behind them, so nothing z-fights."""
+    zc = T_LOWER + 0.062
+    yf = PLATE_Y - 0.012  # housing front face (steer frame)
+    depth = 0.022
     housing = basis(sp(0, yf + depth / 2, zc), XAX, UP)  # local Z points forward
-    outline = fillet_poly([(0.060, 0.041), (-0.060, 0.041), (-0.045, -0.041), (0.045, -0.041)], 0.020, 5)
+    outline = fillet_poly([(0.066, 0.031), (-0.066, 0.031), (-0.056, -0.031), (0.056, -0.031)], 0.012, 4)
     slab(m, ST, outline, depth, "black", housing, bevel=0.005, segs=2)
-    mat = basis(sp(0, yf, zc - 0.008), XAX, UP)  # lathe axis = forward
-    m.lathe(ST, [(0.0275, 0.0008), (0.0262, 0.0004), (0.0170, -0.0060)], "chrome", matrix=mat, segments=20)
-    m.lathe(ST, [(0.0, 0.0010), (0.0110, 0.0002), (0.0172, -0.0055)], "light_white", matrix=mat, segments=16)
-    drl = basis(sp(0, yf + 0.0005, zc + 0.029), XAX, UP)
-    slab(m, ST, mp.rounded_rect(0.088, 0.0070, 0.0034, 2), 0.003, "light_white", drl)
+    slab(m, ST, mp.rounded_rect(0.100, 0.036, 0.008, 2), 0.004, "chrome", basis(sp(0, yf - 0.0005, zc - 0.006),
+                                                                              XAX, UP), bevel=0.0015)
+    slab(m, ST, mp.rounded_rect(0.090, 0.027, 0.006, 2), 0.003, "light_white",
+         basis(sp(0, yf - 0.003, zc - 0.006), XAX, UP))
+    drl = basis(sp(0, yf - 0.0005, zc + 0.020), XAX, UP)
+    slab(m, ST, mp.rounded_rect(0.100, 0.0065, 0.0032, 2), 0.003, "light_white", drl)
 
 
 # Fender top-surface centre line in the steer frame, rear end -> beak tip:
 # (y, z, half-width, side drop).
-FENDER = [(y, z + DT_L, hw, drop) for (y, z, hw, drop) in [
-    (0.070, 0.580, 0.036, 0.018),
-    (0.035, 0.606, 0.048, 0.024),
-    (0.000, 0.617, 0.051, 0.028),
-    (-0.050, 0.611, 0.056, 0.033),
-    (-0.105, 0.592, 0.074, 0.042),
-    (-0.180, 0.555, 0.080, 0.046),
-    (-0.255, 0.503, 0.068, 0.040),
-    (-0.318, 0.452, 0.048, 0.027),
-    (-0.366, 0.405, 0.013, 0.008),
+FENDER = [(y, T_LOWER + dz, hw, drop) for (y, dz, hw, drop) in [
+    (0.070, -0.080, 0.036, 0.018),
+    (0.035, -0.054, 0.048, 0.024),
+    (0.000, -0.043, 0.051, 0.028),
+    (-0.050, -0.049, 0.056, 0.033),
+    (-0.105, -0.068, 0.074, 0.042),
+    (-0.180, -0.105, 0.080, 0.046),
+    (-0.255, -0.157, 0.068, 0.040),
+    (-0.318, -0.208, 0.048, 0.027),
+    (-0.366, -0.255, 0.013, 0.008),
 ]]
 
 
@@ -612,7 +650,7 @@ def front_fender(m):
         rings.append([sp(*p) for p in ring])
     skin(m, ST, rings, "white")
     # four spacers between the fender and the lower clamp (mirrored pairs)
-    for y, zf in ((-0.048, 0.610 + DT_L), (0.016, 0.613 + DT_L)):
+    for y, zf in ((-0.048, T_LOWER - 0.050), (0.016, T_LOWER - 0.047)):
         m.cylinder(ST, 0.0070, LC0 - zf + 0.002, "black", matrix=sm(0.026, y, (LC0 + zf) / 2), segments=8,
                    mirror=True)
 
@@ -622,7 +660,7 @@ def front_fender(m):
 
 def stanchions_and_feet(m):
     """Chrome stanchions screwed into machined axle feet with axle pinch bolts."""
-    top = S.FORK_SPLIT_T + 0.03
+    top = S.FORK_SPLIT_T + 0.03 + S.FORK_TRAVEL  # stays inside the gold tube over the whole travel
     m.lathe(FL, [(R_IN, 0.060), (R_IN, top), (0.0, top)], "chrome", matrix=leg_m(), segments=20, mirror=True)
     # foot body: a rounded block, longer fore-aft than across, narrower than the axle boss
     foot_t = [-0.027, -0.021, 0.056, 0.069, 0.0755]
@@ -647,7 +685,7 @@ def fork_guards(m):
     # angle round the leg from straight ahead (0) towards the outside (+); the inner edge stops at -48 deg
     # so the left guard stays clear of the front brake disc (x = FRONT_DISC_X) below the disc radius
     a0, a1 = -48.0, 105.0
-    top = S.FORK_SPLIT_T - 0.030  # just below the dust wiper
+    top = S.FORK_SPLIT_T - 0.016 - S.FORK_TRAVEL  # the dust wiper stops 4 mm above it at full travel
     sections = [(0.064, 0.0315, 0.0), (0.090, 0.0300, 0.004), (0.090 + 0.47 * (top - 0.090), 0.0290, 0.005),
                 (top - 0.030, 0.0283, 0.004), (top, 0.0262, 0.0)]
     n = 10
@@ -729,18 +767,10 @@ def lower_hose(m, banjo):
 
 
 def axle(m):
-    """Axle shaft, its head on the left foot and the nut on the right foot.
-
-    parts/wheels.py models these too while its FRONT_AXLE_NUT flag is True (they should be
-    here: the axle is clamped in the fork and does not spin), so skip them to avoid doubles.
-    """
-    try:
-        from parts import wheels  # noqa: PLC0415
-
-        if getattr(wheels, "FRONT_AXLE_NUT", False):
-            return
-    except Exception:  # noqa: BLE001 (no wheel part yet: model the axle here)
-        pass
+    """Axle shaft, its head on the left foot and the nut on the right foot (while spec.FRONT_AXLE_IN_FORK;
+    otherwise parts/wheels.py builds them)."""
+    if not S.FRONT_AXLE_IN_FORK:
+        return
     a = S.FRONT_AXLE
     lug_out = LEG_X + 0.021
     m.tube(FL, [a + Vector((-(lug_out + 0.0055), 0, 0)), a + Vector((lug_out + 0.004, 0, 0))], 0.0085, "steel",

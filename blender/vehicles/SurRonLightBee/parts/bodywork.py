@@ -2,18 +2,18 @@
 
 Group "Body" (shared with chassis.py, which adds the frame and the mechanics):
   * seat: long, thin, flat dirt-bike seat from spec.SEAT_FRONT to spec.SEAT_REAR with a
-    narrow nose, rounded shoulders, a slight dish and a pointed tail
+    nearly parallel sides, rounded shoulders, a slight dish and a squared-off tail
   * front shroud: white moulded cover over the headstock, the front of the top beams and the
     top of the battery; the seat nose sits in a channel between its two raised flanks
-  * side panels (both sides): large white covers over the frame top beams and the upper
-    battery, from behind the head tube back under the seat, with an angled lower edge, a
-    raised upper flare (a sculpted shape line) and a grey stripe decal
+  * side panels (both sides): slim white strips under the shroud and the seat nose, from behind
+    the head tube back to the middle of the battery, with a grey stripe decal; the frame's
+    top beam falls away below them more steeply, so it shows, as on the real bike
   * rear side panels (both sides): white covers under the back of the seat that taper into
     the tail, with a grey decal
-  * rear fender / tail: short white fender from under the seat to spec.TAIL_END (just behind the
-    rear axle, as on the real bike), sweeping up
-    slightly at the tip, with a black tail-light unit under it carrying a red LED lens
-    (light_red -> Body_NeonRed in Roblox) and a red reflector
+  * rear fender / tail: short white fender from under the seat to a pointed tip at spec.TAIL_END
+    (just behind the rear axle, as on the real bike), a thin blade sweeping up slightly at the tip,
+    with a slim black tail-light unit under it carrying a red LED lens (light_red ->
+    Body_NeonRed in Roblox) and a red reflector
   * black inner rear mudguard under the fender: an arc concentric with the rear wheel whose
     skin stays >= 20 cm from the tyre, its side flanges standing on the subframe rails
 
@@ -23,7 +23,8 @@ All positions are world metres from spec.py (Z up, the bike faces -Y, the rider'
 Construction: the plastics are thin moulded shells (SHELL = 4 mm walls). shell() turns a
 grid of outer-surface points into a closed shell (outer skin, inner skin offset along the
 surface normal, and a rim round the edge with a 2.5 mm chamfer on the outer edge); faces are
-wound outwards explicitly, since Roblox does not draw back faces. Side panels are laid out as 2D outlines in the
+wound outwards explicitly, since Roblox does not draw back faces. Decal sheets stand DECAL_LIFT
+(2 mm) off their panel so they do not z-fight. Side panels are laid out as 2D outlines in the
 side view (y, z) and wrapped onto a gently curved surface x = f(y, z) (outline_grid()), so
 their outlines can be drawn freely while the surface stays smooth. The shroud, fender and
 mudguard are lofts through hand-placed cross-sections; the seat is a closed loft.
@@ -39,6 +40,7 @@ from midpoly import look, tr
 
 BODY = "Body"
 SHELL = 0.004  # plastic wall thickness
+DECAL_LIFT = 0.002  # decal sheets stand this far off the panel (>= 2 mm, so they do not z-fight in Roblox)
 
 # =============================================================================== helpers
 
@@ -281,21 +283,18 @@ def shell(m, outer, color, thick=SHELL, inner=None, hint=None, back=True, rim=Tr
             out_dir = mid - nb if (mid - nb).length > 1e-7 else mid - cen
             for (v0, p0), (v1, p1) in zip(rings, rings[1:]):
                 q = [at(v0, a), at(v0, b), at(v1, b), at(v1, a)]
-                pa, pb = at(p0, a), at(p0, b)
-                fn = (pb - pa).cross(at(p1, a) - pa)
-                if fn.length < 1e-12:
-                    fn = (pb - pa).cross(at(p1, b) - pa)
+                # area (Newell) normal of the whole quad: robust where a corner collapses (pointed ends)
+                pts = [at(p0, a), at(p0, b), at(p1, b), at(p1, a)]
+                fn = Vector()
+                for k2 in range(4):
+                    u, w = pts[k2], pts[(k2 + 1) % 4]
+                    fn += Vector(((u.y - w.y) * (u.z + w.z), (u.z - w.z) * (u.x + w.x), (u.x - w.x) * (u.y + w.y)))
                 face(q if fn.dot(out_dir) >= 0 else q[::-1])
     # without a back skin the inner grid's interior points are unused: drop them (no loose verts in the export)
     unused = [v for v in bm.verts if not v.link_faces]
     if unused:
         bmesh.ops.delete(bm, geom=unused, context="VERTS")
     m.commit(BODY, bm, color, mirror=mirror, smooth=smooth, recalc=False)
-
-
-def lift_grid(grid, xfun, dx):
-    """Copy of a side-panel grid moved to x = xfun(y, z) + dx (for raised details and decals)."""
-    return [[Vector((xfun(p.y, p.z) + dx, p.y, p.z)) for p in col] for col in grid]
 
 
 # =============================================================================== seat
@@ -305,10 +304,10 @@ def lift_grid(grid, xfun, dx):
 
 SEAT_Y = [-0.138, -0.134, -0.128, -0.120, -0.100, -0.070, -0.030, 0.020, 0.080, 0.160, 0.250, 0.340, 0.420,
           0.480, 0.520, 0.540, 0.553, 0.562]
-SEAT_W = [(-0.138, 0.010), (-0.134, 0.024), (-0.128, 0.033), (-0.120, 0.041), (-0.100, 0.053), (-0.070, 0.067),
-          (-0.030, 0.084), (0.020, 0.100), (0.080, 0.112), (0.160, 0.119), (0.250, S.SEAT_MAX_HALF_WIDTH),
-          (0.340, 0.118), (0.420, 0.111), (0.480, 0.098), (0.520, 0.080), (0.540, 0.064), (0.553, 0.044),
-          (0.562, 0.020)]
+SEAT_W = [(-0.138, 0.016), (-0.134, 0.034), (-0.128, 0.046), (-0.120, 0.056), (-0.100, 0.072), (-0.070, 0.088),
+          (-0.030, 0.100), (0.020, 0.108), (0.080, 0.114), (0.160, 0.119), (0.250, S.SEAT_MAX_HALF_WIDTH),
+          (0.340, 0.119), (0.420, 0.116), (0.480, 0.110), (0.520, 0.101), (0.540, 0.090), (0.553, 0.075),
+          (0.562, 0.048)]
 SEAT_BOT = [(-0.138, 0.817), (-0.030, 0.814), (0.060, 0.812), (0.200, 0.807), (0.330, 0.808), (0.400, 0.818),
             (0.450, 0.829), (0.500, 0.843), (0.530, 0.851), (0.562, 0.861)]
 SEAT_EDGE_LIFT = [(-0.138, 0.002), (-0.120, 0.008), (-0.060, 0.013), (0.000, 0.016), (0.060, 0.012),
@@ -319,7 +318,7 @@ def seat_top(y):
     """Centre-line height of the seat top: SEAT_FRONT -> SEAT_REAR with a slight dish, rounded ends."""
     f, r = S.SEAT_FRONT, S.SEAT_REAR
     u = max(0.0, min(1.0, (y - f.y) / (r.y - f.y)))
-    z = f.z + (r.z - f.z) * u ** 1.25 - 0.004 * math.sin(math.pi * u)
+    z = f.z + (r.z - f.z) * u ** 1.25 - 0.009 * math.sin(math.pi * u)  # a shallow dish, as in the photo
     z -= 0.016 * smoothstep(-0.120, -0.139, y)  # nose rolls down
     z -= 0.016 * smoothstep(0.525, 0.563, y)  # tail tip rolls down onto the fender
     return z
@@ -365,17 +364,18 @@ SHROUD = [
               (0.017, 0.886), (0.0, 0.886)]),
     (-0.165, [(0.112, 0.786), (0.118, 0.830), (0.112, 0.864), (0.094, 0.882), (0.070, 0.879), (0.046, 0.865),
               (0.020, 0.857), (0.0, 0.856)]),
-    (-0.140, [(0.117, 0.786), (0.122, 0.827), (0.116, 0.859), (0.097, 0.874), (0.074, 0.864), (0.052, 0.839),
-              (0.026, 0.828), (0.0, 0.826)]),
-    (-0.120, [(0.121, 0.788), (0.126, 0.824), (0.119, 0.853), (0.100, 0.867), (0.078, 0.857), (0.062, 0.827),
+    # from here back the flanks stay at least ~2 cm under the seat top, so the seat nose shows in side view
+    (-0.140, [(0.117, 0.786), (0.122, 0.822), (0.115, 0.840), (0.098, 0.846), (0.076, 0.842), (0.054, 0.830),
+              (0.026, 0.822), (0.0, 0.820)]),
+    (-0.120, [(0.121, 0.788), (0.126, 0.820), (0.119, 0.837), (0.101, 0.844), (0.080, 0.840), (0.064, 0.826),
               (0.035, 0.815), (0.0, 0.813)]),
-    (-0.090, [(0.125, 0.792), (0.129, 0.821), (0.122, 0.846), (0.104, 0.859), (0.085, 0.848), (0.074, 0.823),
+    (-0.090, [(0.125, 0.792), (0.129, 0.818), (0.122, 0.835), (0.105, 0.842), (0.088, 0.838), (0.078, 0.822),
               (0.048, 0.813), (0.0, 0.812)]),
-    (-0.055, [(0.130, 0.800), (0.133, 0.819), (0.126, 0.840), (0.110, 0.852), (0.097, 0.845), (0.090, 0.826),
+    (-0.055, [(0.130, 0.800), (0.133, 0.817), (0.126, 0.833), (0.111, 0.841), (0.099, 0.837), (0.092, 0.825),
               (0.055, 0.813), (0.0, 0.812)]),
-    (-0.030, [(0.132, 0.806), (0.135, 0.823), (0.128, 0.837), (0.114, 0.846), (0.102, 0.840), (0.095, 0.825),
+    (-0.030, [(0.132, 0.806), (0.135, 0.821), (0.128, 0.833), (0.115, 0.840), (0.104, 0.836), (0.097, 0.824),
               (0.060, 0.812), (0.0, 0.811)]),
-    (0.000, [(0.133, 0.812), (0.136, 0.828), (0.129, 0.839), (0.116, 0.841), (0.105, 0.835), (0.099, 0.824),
+    (0.000, [(0.133, 0.812), (0.136, 0.826), (0.129, 0.836), (0.117, 0.839), (0.106, 0.834), (0.100, 0.824),
              (0.060, 0.811), (0.0, 0.810)]),
     (0.040, [(0.134, 0.809), (0.137, 0.824), (0.130, 0.834), (0.119, 0.836), (0.110, 0.830), (0.106, 0.820),
              (0.070, 0.810), (0.0, 0.809)]),
@@ -394,12 +394,12 @@ def front_shroud(m):
         grid.append([Vector((x, y - rake * (z - 0.85), z)) for (x, z) in prof])
     hint = lambda p: Vector((p.x, 0.0, 1.0))  # noqa: E731
     shell(m, grid, "white", hint=hint, bevel=0.0025)
-    # grey graphic along the top of each flank (a decal sheet 1 mm proud of the surface). Both
+    # grey graphic along the top of each flank (a decal sheet DECAL_LIFT proud of the surface). Both
     # sides are cut from the shroud's own grid (not mirrored) so their quads split the same way.
     normals, _ = grid_normals(grid, hint)
     last = len(grid[0]) - 1
     for cols in (SHROUD_DECAL_COLS, [last - j for j in reversed(SHROUD_DECAL_COLS)]):
-        deco = [[grid[i][j] + normals[i][j] * 0.001 for j in cols] for i in SHROUD_DECAL_ROWS]
+        deco = [[grid[i][j] + normals[i][j] * DECAL_LIFT for j in cols] for i in SHROUD_DECAL_ROWS]
         shell(m, deco, "grey", thick=0.0, hint=hint, back=False, rim=False)
 
 
@@ -408,41 +408,37 @@ def front_shroud(m):
 # under the seat with an angled lower edge, and the surface it is wrapped onto.
 
 PANEL_TOP = [(-0.262, 0.806), (-0.230, 0.803), (-0.195, 0.801), (-0.150, 0.799), (-0.100, 0.802), (-0.050, 0.811),
-             (0.000, 0.822), (0.040, 0.822), (0.100, 0.819), (0.200, 0.817)]
-PANEL_BOT = [(-0.262, 0.655), (-0.228, 0.640), (0.185, 0.778), (0.205, 0.790)]
-PANEL_OUTLINE = fillet2d([(-0.228, 0.640), (0.185, 0.778), (0.202, 0.806)] + PANEL_TOP[::-1],
-                         [0.022, 0.030, 0.0, 0.008] + [0.0] * 8 + [0.014], step=28)
+             (0.000, 0.818), (0.040, 0.818), (0.075, 0.812)]
+# a slim strip above the frame's top beam: the beam falls away more steeply, so it shows below the panel
+PANEL_BOT = [(-0.262, 0.788), (-0.236, 0.776), (0.040, 0.752), (0.075, 0.790)]
+PANEL_OUTLINE = fillet2d([(-0.236, 0.776), (0.040, 0.752), (0.080, 0.792)] + PANEL_TOP[::-1],
+                         [0.014, 0.020, 0.008, 0.008] + [0.0] * 7 + [0.010], step=28)
 PANEL_XC = [(-0.265, 0.096), (-0.230, 0.103), (-0.200, 0.111), (-0.150, 0.123), (-0.100, 0.131), (-0.050, 0.137),
-            (0.000, 0.140), (0.080, 0.142), (0.210, 0.142)]
+            (0.000, 0.140), (0.080, 0.142)]
 # the top edge tucks in under the shroud / seat by this (less where the frame's top beams run just inside it)
-PANEL_CURL = [(-0.265, 0.008), (-0.165, 0.009), (-0.050, 0.010), (0.020, 0.012), (0.100, 0.018), (0.210, 0.026)]
-PANEL_ROWS = [0.0, 0.4, 0.75, 0.92, 1.0]  # bunched towards the tucked-in top edge
+PANEL_CURL = [(-0.265, 0.008), (-0.165, 0.009), (-0.050, 0.010), (0.020, 0.012), (0.080, 0.016)]
+PANEL_ROWS = [0.0, 0.5, 0.85, 1.0]  # bunched towards the tucked-in top edge
 
 
 def panel_x(y, z):
     """Outer surface of the left side panel: flared out going back, crowned, top edge tucked in."""
     zt, zb = curve(PANEL_TOP, y), curve(PANEL_BOT, y)
     v = max(0.0, min(1.0, (z - zb) / max(zt - zb, 1e-3)))
-    x = curve(PANEL_XC, y) + 0.007 * math.sin(math.pi * v) ** 0.8
-    x -= curve(PANEL_CURL, y) * smoothstep(0.022, 0.0, zt - z) ** 1.3
-    x -= 0.004 * smoothstep(0.016, 0.0, z - zb)
+    x = curve(PANEL_XC, y) + 0.005 * math.sin(math.pi * v) ** 0.8
+    x -= curve(PANEL_CURL, y) * smoothstep(0.018, 0.0, zt - z) ** 1.3
+    x -= 0.003 * smoothstep(0.012, 0.0, z - zb)
     return x
 
 
-# raised flare on the upper part of the panel: its lower edge is a shape line running
-# roughly parallel to the angled lower edge of the panel
-FLARE_OUTLINE = fillet2d([(-0.244, 0.792), (-0.222, 0.682), (0.070, 0.771), (0.128, 0.787), (0.050, 0.796),
-                          (-0.050, 0.797), (-0.150, 0.790)], [0.010, 0.016, 0.0, 0.006, 0.0, 0.0, 0.0], step=30)
-STRIPE_OUTLINE = [(-0.206, 0.668), (0.080, 0.752), (0.128, 0.767), (0.080, 0.762), (-0.192, 0.682)]
+# graphic along the strip (a decal sheet 2 mm proud of the panel), tapering to the rear
+STRIPE_OUTLINE = [(-0.214, 0.782), (0.020, 0.763), (0.052, 0.772), (0.020, 0.775), (-0.200, 0.792)]
 
 
 def side_panels(m):
-    """Large side panels (both sides) with a raised upper flare and a grey stripe decal."""
+    """Slim side panels (both sides) over the top of the frame beams, with a graphic stripe."""
     grid = outline_grid(PANEL_OUTLINE, PANEL_ROWS, panel_x, max_gap=0.09, min_gap=0.06)
     shell(m, grid, "white", bevel=0.0025, mirror=True)
-    flare = outline_grid(FLARE_OUTLINE, 2, lambda y, z: panel_x(y, z) + 0.0035, max_gap=0.1, min_gap=0.06)
-    shell(m, flare, "white", inner=lift_grid(flare, panel_x, -0.002), back=False, mirror=True)
-    stripe = outline_grid(STRIPE_OUTLINE, 1, lambda y, z: panel_x(y, z) + 0.0012, max_gap=0.12, min_gap=0.01)
+    stripe = outline_grid(STRIPE_OUTLINE, 2, lambda y, z: panel_x(y, z) + DECAL_LIFT, max_gap=0.08, min_gap=0.01)
     shell(m, stripe, "grey", thick=0.0, back=False, rim=False, mirror=True)
 
 
@@ -451,13 +447,14 @@ def side_panels(m):
 # into the side of the tail.
 
 REAR_TOP = [(0.250, 0.813), (0.330, 0.815), (0.400, 0.823), (0.450, 0.832), (0.500, 0.842), (0.540, 0.848),
-            (0.580, 0.853), (0.615, 0.857), (0.645, 0.858), (0.668, 0.852)]
-REAR_BOT = [(0.255, 0.718), (0.440, 0.768), (0.590, 0.815), (0.668, 0.852)]
-REAR_OUTLINE = fillet2d(REAR_BOT + REAR_TOP[::-1][1:], [0.014, 0.0, 0.0, 0.012] + [0.0] * 8 + [0.010], step=30)
-REAR_XC = [(0.250, 0.122), (0.300, 0.121), (0.400, 0.116), (0.480, 0.110), (0.560, 0.103), (0.620, 0.097),
-           (0.668, 0.092)]
+            (0.580, 0.855), (0.615, 0.862), (0.648, 0.866)]
+# the underside rises towards the tip, so the tail reads as a thin blade (as in the photo)
+REAR_BOT = [(0.255, 0.718), (0.440, 0.768), (0.585, 0.832), (0.648, 0.866)]
+REAR_OUTLINE = fillet2d(REAR_BOT + REAR_TOP[::-1][1:], [0.014, 0.0, 0.0, 0.010] + [0.0] * 7 + [0.010], step=30)
+REAR_XC = [(0.250, 0.122), (0.300, 0.121), (0.400, 0.116), (0.480, 0.110), (0.560, 0.103), (0.620, 0.096),
+           (0.650, 0.092)]
 REAR_ROWS = [0.0, 0.5, 0.85, 1.0]
-REAR_DECAL = [(0.320, 0.775), (0.500, 0.809), (0.585, 0.832), (0.545, 0.834), (0.320, 0.792)]
+REAR_DECAL = [(0.320, 0.775), (0.500, 0.812), (0.585, 0.840), (0.545, 0.840), (0.320, 0.792)]
 
 
 def rear_x(y, z):
@@ -474,18 +471,18 @@ def rear_side_panels(m):
     """Rear side panels under the back of the seat (both sides) with a grey decal."""
     grid = outline_grid(REAR_OUTLINE, REAR_ROWS, rear_x, max_gap=0.09, min_gap=0.06)
     shell(m, grid, "white", bevel=0.0025, mirror=True)
-    decal = outline_grid(REAR_DECAL, 1, lambda y, z: rear_x(y, z) + 0.0012, max_gap=0.12, min_gap=0.01)
+    decal = outline_grid(REAR_DECAL, 2, lambda y, z: rear_x(y, z) + DECAL_LIFT, max_gap=0.08, min_gap=0.01)
     shell(m, decal, "grey", thick=0.0, back=False, rim=False, mirror=True)
 
 
 # =============================================================================== rear fender
 
-# y, crown height (centre line), half width, skirt bottom height. It must stay wider than the
-# subframe rails, which end under it at y = 0.64.
+# y, crown height (centre line), half width, skirt bottom height. The skirt rises towards the tip so
+# the tail is a thin blade, and the last row is the pointed tip itself (one point).
 FENDER = [(0.420, 0.819, 0.086, 0.799), (0.465, 0.830, 0.087, 0.806), (0.520, 0.845, 0.088, 0.812),
-          (0.565, 0.857, 0.087, 0.816), (0.605, 0.867, 0.085, 0.814), (0.635, 0.874, 0.080, 0.808),
-          (0.655, 0.879, 0.072, 0.810), (0.670, 0.883, 0.060, 0.826), (0.681, 0.886, 0.045, 0.850),
-          (S.TAIL_END.y, S.TAIL_END.z, 0.026, 0.872)]
+          (0.565, 0.857, 0.087, 0.820), (0.605, 0.867, 0.085, 0.835), (0.635, 0.874, 0.080, 0.850),
+          (0.655, 0.879, 0.071, 0.860), (0.667, 0.882, 0.057, 0.866), (0.679, 0.886, 0.036, 0.873),
+          (S.TAIL_END.y, S.TAIL_END.z, None, None)]
 FENDER_CROWN = 0.011  # the centre line stands this much above the shoulders
 
 
@@ -502,6 +499,9 @@ def rear_fender(m):
     """Long white rear fender from under the seat to the tail tip."""
     grid = []
     for y, zc, w, zsk in FENDER:
+        if w is None:  # pointed tip: the whole section collapses to one point
+            grid.append([Vector((0.0, y, zc))] * len(grid[-1]))
+            continue
         half = fender_profile(zc, w, zsk)
         prof = half + [(-x, z) for (x, z) in reversed(half[:-1])]
         grid.append([Vector((x, y, z)) for (x, z) in prof])
@@ -509,15 +509,15 @@ def rear_fender(m):
 
 
 def tail_light(m):
-    """Black tail-light unit filling the space under the fender tip, from the fender's underside
-    down onto the subframe's end tabs (it is bolted to them), with the LED lens and a reflector."""
-    c = Vector((0.0, 0.655, 0.834))
-    m.box(BODY, (0.112, 0.036, 0.058), "black", matrix=tr(c), bevel=0.009, bevel_segments=1)
+    """Slim black tail-light unit bolted under the fender tip (its top is buried in the fender), with
+    the LED lens and a reflector on its rear face."""
+    c = Vector((0.0, 0.652, 0.851))
+    m.box(BODY, (0.100, 0.034, 0.038), "black", matrix=tr(c), bevel=0.008, bevel_segments=1)
     # LED lens across the upper rear face (under the fender tip), slightly proud
-    m.box(BODY, (0.070, 0.006, 0.016), "light_red", matrix=tr((0.0, c.y + 0.0185, c.z + 0.008)), bevel=0.0025,
+    m.box(BODY, (0.068, 0.006, 0.012), "light_red", matrix=tr((0.0, c.y + 0.0175, c.z + 0.007)), bevel=0.002,
           bevel_segments=1)
     # round red reflector below it
-    m.cylinder(BODY, 0.0080, 0.004, "red", matrix=look((0.0, c.y + 0.019, c.z - 0.017), (0, 1, 0)), segments=12)
+    m.cylinder(BODY, 0.0065, 0.004, "red", matrix=look((0.0, c.y + 0.018, c.z - 0.010), (0, 1, 0)), segments=12)
 
 
 # =============================================================================== inner mudguard
@@ -526,8 +526,8 @@ GUARD_R = 0.518  # radius of its top skin about the rear axle: >= 0.20 m from th
 
 
 def rail(y):
-    """Centre (x, z) of the left subframe rail at y (approximates chassis.subframe(); radius 0.0125)."""
-    return curve([(0.33, (0.096, 0.780)), (0.52, (0.080, 0.790)), (0.64, (0.066, 0.796))], y)
+    """Centre (x, z) of the left subframe rail at y (spec.SUBFRAME_RAIL, which chassis.py builds)."""
+    return S.subframe_rail_at(y)
 
 
 def inner_mudguard(m):
@@ -535,11 +535,12 @@ def inner_mudguard(m):
     standing on the subframe rails (it is screwed to them)."""
     ax = S.REAR_AXLE
     grid = []
-    for y in (0.486, 0.515, 0.545, 0.575, 0.600, 0.620):  # between the subframe cross tubes
+    y0, y1 = S.SUBFRAME_CROSS_Y
+    for y in [y0 + 0.014 + (y1 - y0 - 0.028) * k / 3 for k in range(4)]:  # between the subframe cross tubes
         z = ax.z + math.sqrt(GUARD_R ** 2 - (y - ax.y) ** 2)
         rx, rz = rail(y)
         w = rx - 0.005
-        foot = rz + 0.0115  # on top of the rail
+        foot = rz + S.SUBFRAME_RAIL_R - 0.001  # on top of the rail
         half = [(w, min(foot, z - 0.008)), (w, z - 0.004), (w - 0.006, z), (0.0, z + 0.002)]
         grid.append([Vector((x, y, h)) for (x, h) in half + [(-x, h) for (x, h) in reversed(half[:-1])]])
     shell(m, grid, "black", thick=0.003, hint=lambda p: Vector((p.x, 0.0, 1.0)))

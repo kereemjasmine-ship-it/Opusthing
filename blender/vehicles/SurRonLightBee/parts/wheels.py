@@ -36,9 +36,9 @@ SPOKE_SIDES = 6  # spokes are ~4 mm thick: six sides read round at any distance
 SPOKES = 36
 SPOKE_CROSS = 3  # 3-cross lacing, like a real MX wheel
 # The front axle shaft, nut and head are clamped in the fork, so parts/front_end.py builds them in
-# ForkLowers (they must not spin with the wheel). Set this to True only to build them here instead.
+# ForkLowers (they must not spin with the wheel) while spec.FRONT_AXLE_IN_FORK is True; otherwise here.
 # (The rear axle and nut belong to the swingarm in parts/chassis.py, so the rear wheel only has spacers.)
-FRONT_AXLE_NUT = False
+FRONT_AXLE_NUT = not spec.FRONT_AXLE_IN_FORK
 
 KNOB_HEIGHT = 0.0125  # knob tips sit on spec.WHEEL_RADIUS
 CROWN_R = spec.WHEEL_RADIUS - KNOB_HEIGHT  # carcass radius at the tread centre
@@ -412,11 +412,12 @@ def front_disc(m, group, axle):
         a1 = 2 * math.pi * (i + 1) / 6 - math.radians(9)
         windows.append(window(band_in - 0.0045, 0.044, a0, a1, math.radians(6)))
     carrier_out = [polar(c_out, 2 * math.pi * i / 30) for i in range(30)]
-    plate(m, group, [carrier_out] + windows, 0.005, "dark_alu", mat)
-    # floating buttons joining disc and carrier, and the carrier-to-hub bolts
-    ring_of(m, group, axle, x, band_in + 0.0005, 6, 0.0048, 0.0075, "steel", segments=8,
+    # (the carrier stands 2 mm proud of the band on each face where they overlap: no z-fighting)
+    plate(m, group, [carrier_out] + windows, 0.0075, "dark_alu", mat)
+    # floating buttons joining disc and carrier, and the carrier-to-hub bolts (2 mm proud of the carrier)
+    ring_of(m, group, axle, x, band_in + 0.0005, 6, 0.0048, 0.0115, "steel", segments=8,
             phase=math.pi / 6)
-    ring_of(m, group, axle, x + 0.0035, 0.038, 6, 0.0042, 0.004, "steel", segments=6)
+    ring_of(m, group, axle, x + 0.0045, 0.038, 6, 0.0042, 0.004, "steel", segments=6)
 
 
 def rear_disc(m, group, axle):

@@ -55,6 +55,8 @@ FORK_OUTER_RADIUS = 0.027  # gold upper (outer) tube of the upside-down fork
 FORK_INNER_RADIUS = 0.019  # chrome stanchion below it
 FORK_SPLIT_T = 0.32  # gold outer tube covers t = FORK_SPLIT_T .. FORK_TOP_T, stanchion below
 FORK_TOP_T = 0.77
+FRONT_AXLE_IN_FORK = True  # front axle, head and nut are built in ForkLowers (they do not spin with the wheel)
+FORK_TRAVEL = 0.06  # usable fork compression (ForkLowers sliding up STEER_DIR) before the guards reach the wipers
 HANDLEBAR_CENTRE = TOP_CLAMP + Vector((0.0, 0.039, 0.045))  # low bar, just behind the fork caps
 HANDLEBAR_HALF_WIDTH = 0.39
 NUMBER_PLATE_CENTRE = LOWER_CLAMP + STEER_FWD * 0.10 + STEER_DIR * 0.03
@@ -71,29 +73,52 @@ FRONT_SPROCKET = Vector((CHAIN_X, 0.12, 0.385))
 BATTERY_CENTRE = Vector((0.0, -0.02, 0.63))
 BATTERY_SIZE = Vector((0.19, 0.30, 0.34))  # x, y, z: sits inside the frame loop
 FOOTPEG = Vector((0.20, 0.13, 0.30))  # left peg; right is mirrored
-SEAT_FRONT = Vector((0.0, -0.12, 0.85))  # top surface of the seat nose
+SEAT_FRONT = Vector((0.0, -0.12, 0.87))  # top surface of the seat nose (it stands clear of the shroud flanks)
 SEAT_REAR = Vector((0.0, 0.52, 0.89))
 SEAT_MAX_HALF_WIDTH = 0.12
 TAIL_END = Vector((0.0, 0.69, 0.89))  # tip of the rear fender (just behind the rear axle, as in the photo)
+# Left rear-subframe rail centre line (mirrored for the right rail), read by chassis.py (which builds the
+# rails) and bodywork.py (whose inner mudguard stands on them). Its end rises to meet the fender's underside.
+SUBFRAME_RAIL = [Vector((0.104, 0.180, 0.772)), Vector((0.096, 0.330, 0.780)), Vector((0.084, 0.470, 0.790)),
+                 Vector((0.068, 0.565, 0.826))]
+SUBFRAME_RAIL_R = 0.0125
+SUBFRAME_CROSS_Y = (0.470, 0.548)  # cross tubes between the rails
+
+
+def subframe_rail_at(y):
+    """(x, z) of the left subframe rail centre line at y (straight between its control points)."""
+    pts = SUBFRAME_RAIL
+    for a, b in zip(pts, pts[1:]):
+        if y <= b.y:
+            f = max(0.0, (y - a.y) / (b.y - a.y))
+            return a.x + (b.x - a.x) * f, a.z + (b.z - a.z) * f
+    return pts[-1].x, pts[-1].z
+
 
 # -- groups ------------------------------------------------------------------------
 # Each group is one Roblox MeshPart; its origin is the pivot listed here.
 PIVOTS = {
-    "Body": Vector((0.0, 0.0, 0.0)),  # frame, battery, motor, shock, bodywork, seat
+    "Body": Vector((0.0, 0.0, 0.0)),  # frame, battery, motor, bodywork, seat
     "Swingarm": SWINGARM_PIVOT,  # swingarm, chain, rear caliper (pivots about X)
+    # rear shock in two halves, so the swingarm can move: aim each at the other's pivot every frame
+    # (Shock turns about X at SHOCK_TOP; ShockRod rides on the swingarm and turns about X at SHOCK_BOTTOM)
+    "Shock": SHOCK_TOP,  # shock body, top eye, preload collar, spring
+    "ShockRod": SHOCK_BOTTOM,  # lower eye, rod end and spring seat, chrome shaft
     "Steering": LOWER_CLAMP,  # clamps, gold fork tubes, bars, number plate, front fender (turns about STEER_DIR)
     "ForkLowers": FRONT_AXLE,  # stanchions, axle lugs, fork guards, front caliper (slide along STEER_DIR)
     "FrontWheel": FRONT_AXLE,  # tyre, rim, spokes, hub, disc (spins about X)
     "RearWheel": REAR_AXLE,  # tyre, rim, spokes, hub, disc, sprocket (spins about X)
 }
 BUDGETS = {  # triangles per group mesh (the Roblox hard limit is 20,000 per mesh)
-    "Body": 14000,
-    "Swingarm": 5000,
-    "Steering": 8000,
+    "Body": 13500,
+    "Swingarm": 4700,
+    "Shock": 1100,
+    "ShockRod": 400,
+    "Steering": 8800,
     "ForkLowers": 3000,
-    "FrontWheel": 6500,
-    "RearWheel": 7500,
-}
+    "FrontWheel": 6200,
+    "RearWheel": 7000,
+}  # these add up to 44,700, inside TOTAL_BUDGET
 TOTAL_BUDGET = 45000
 
 # -- materials (name, hex, metallic, roughness[, light]) ------------------------------

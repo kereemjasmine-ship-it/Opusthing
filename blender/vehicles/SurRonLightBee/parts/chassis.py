@@ -2,15 +2,19 @@
 
 Group "Body" (frame and mechanics only; the plastics and the seat come from bodywork.py):
   * forged aluminium frame: head tube, a loop of wide flat beams on each side of the
-    battery (top beam, rear section, lower beam, down beam) whose two ends meet in a forged
-    headstock behind the head tube, corner webs, cross-members, big swingarm pivot plates
-    with footpeg mounts, tubular rear subframe
-  * battery case with ribbing, motor controller under the seat
+    battery (a top beam falling ~17 degrees to the rear, a forward-placed rear upright, the
+    lower beam and the down beam) whose two ends meet in a forged headstock behind the head
+    tube, a corner web, a short forged tower from the rear-top corner up to the shock mount,
+    cross-members, big swingarm pivot plates with footpeg mounts, tubular rear subframe
+    (spec.SUBFRAME_RAIL)
+  * battery case with vertical slats on its sides, motor controller under the seat
   * motor (finned body, end cap, bolts), primary gearbox case on the LEFT, front sprocket,
-    skid plate, phase cable
+    black skid plate, phase cable
   * folding serrated footpegs (both sides), kickstand (left, folded back)
-  * rear shock: body, chrome shaft, coil spring swept along a helix, eyes and mounts
-  * the frame half of the rear brake hose
+  * the shock's top mount; the frame half of the rear brake hose
+Groups "Shock" (origin spec.SHOCK_TOP) and "ShockRod" (origin spec.SHOCK_BOTTOM):
+  * the rear shock in two halves that can be aimed at each other (body, top eye, preload collar and
+    coil spring; lower eye, rod end, spring seat and chrome shaft)
 Group "Swingarm" (origin at spec.SWINGARM_PIVOT):
   * box-section aluminium swingarm with a cross brace and shock clevis, pivot bosses,
     axle blocks, chain adjusters, axle and nuts, chain slider
@@ -35,7 +39,7 @@ from mathutils import Matrix, Vector
 import spec as S
 from midpoly import look, rounded_rect
 
-BODY, ARM = "Body", "Swingarm"
+BODY, ARM, SHOCK, ROD = "Body", "Swingarm", "Shock", "ShockRod"
 BACK = -S.STEER_FWD  # square to the steering axis, pointing to the back of the head tube
 XAXIS = (1, 0, 0)
 
@@ -272,6 +276,8 @@ def _ht(t, back, x):
     return p
 
 
+RT_CORNER = Vector((0.118, 0.140, 0.700))  # rear-top corner of the loop (the shock tower rises from it)
+
 # Frame side loop (left side): control point (x, y, z), corner radius, section scale (su, sv).
 # It runs from the headstock back along the top beam, down the rear section to the pivot
 # plate, forward along the lower beam under the battery, and up the down beam to the
@@ -279,10 +285,12 @@ def _ht(t, back, x):
 
 LOOP = [
     (_ht(0.640, 0.010, 0.026), 0.0, (1.0, 1.0)),  # top-beam root, inside the headstock
-    (Vector((0.084, -0.190, 0.840)), 0.08, (1.0, 1.10)),  # top beam runs back from the head tube...
-    (Vector((0.110, -0.060, 0.792)), 0.15, (1.0, 1.05)),  # ...and levels out under the seat nose
-    (Vector((0.117, 0.080, 0.774)), 0.20, (1.0, 1.0)),
-    (Vector((0.118, 0.218, 0.765)), 0.055, (1.0, 0.95)),  # rear-top corner (shock mount)
+    # the top beam falls ~17 degrees towards the rear below the small side panel, as on the real bike...
+    (Vector((0.084, -0.190, 0.805)), 0.08, (1.0, 1.10)),
+    (Vector((0.110, -0.060, 0.765)), 0.15, (1.0, 1.05)),
+    (Vector((0.117, 0.060, 0.725)), 0.20, (1.0, 1.0)),
+    # ...and turns down at a forward-placed rear-top corner into the rear upright
+    (RT_CORNER, 0.09, (1.0, 1.0)),
     (Vector((0.132, 0.168, 0.450)), 0.06, (1.05, 1.05)),  # rear-bottom corner into the pivot plate
     (Vector((0.112, -0.170, 0.468)), 0.05, (1.0, 0.95)),  # front-bottom corner of the battery bay
     # down-beam root, inside the headstock. The beam runs straight up from the corner so that
@@ -293,6 +301,8 @@ LOOP = [
 BEAM_W, BEAM_H = 0.024, 0.060
 PIVOT_PLATE_X, PIVOT_PLATE_T = 0.145, 0.024
 TOP_MOUNT = Vector((0.0, 0.178, 0.776))  # shock top cross-member (in front of the shock eye)
+# forged tower from the loop's rear-top corner up to the shock cross-member and the subframe roots
+TOWER = [RT_CORNER + Vector((0.0, -0.012, -0.022)), Vector((0.118, TOP_MOUNT.y + 0.004, TOP_MOUNT.z + 0.016))]
 
 
 def frame_loops(m):
@@ -301,12 +311,15 @@ def frame_loops(m):
     radii = [c[1] for c in LOOP]
     scales = [c[2] for c in LOOP]
     beam(m, BODY, ctrl, radii, "alu", BEAM_W, BEAM_H, r=0.0075, cs=3, scales=scales, mirror=True, step=22.0)
-    # forged webs filling the inside of the front-bottom and rear-top corners
+    # forged web filling the inside of the front-bottom corner
     front = [(-0.170, 0.476), (-0.060, 0.476), (-0.128, 0.520), (-0.192, 0.640)]
     slab(m, BODY, fillet_outline(front, [0.0, 0.006, 0.06, 0.006], step=45), 0.014, "alu", side_mat(0.111),
          bevel=0.003, segs=1, mirror=True)
-    rear = [(0.196, 0.745), (0.120, 0.748), (0.170, 0.722), (0.191, 0.655)]
-    slab(m, BODY, fillet_outline(rear, [0.01, 0.006, 0.04, 0.006], step=45), 0.014, "alu", side_mat(0.118),
+    # forged tower from the rear-top corner up to the shock cross-member, with a small gusset
+    # tying it into the top beam
+    beam(m, BODY, TOWER, 0.0, "alu", 0.024, 0.045, r=0.0075, cs=3)
+    gus = [(0.085, 0.745), (0.128, 0.705), (0.150, 0.772)]
+    slab(m, BODY, fillet_outline(gus, [0.004, 0.0, 0.004], step=45), 0.012, "alu", side_mat(0.118),
          bevel=0.003, segs=1, mirror=True)
 
 
@@ -344,8 +357,8 @@ def cross_members(m):
 def pivot_plates(m):
     """Big forged plates round the swingarm pivot (outside the swingarm), with the footpeg mounts."""
     p = S.SWINGARM_PIVOT
-    pts = [(0.204, 0.590), (0.218, 0.445), (0.188, 0.352), (0.160, 0.286), (0.103, 0.282), (0.090, 0.352),
-           (0.028, 0.432), (0.034, 0.494), (0.128, 0.506), (0.158, 0.590)]
+    pts = [(0.198, 0.590), (0.218, 0.445), (0.188, 0.352), (0.160, 0.286), (0.103, 0.282), (0.090, 0.352),
+           (0.028, 0.432), (0.034, 0.494), (0.124, 0.506), (0.146, 0.590)]
     rad = [0.02, 0.05, 0.04, 0.012, 0.012, 0.03, 0.02, 0.015, 0.04, 0.02]
     slab(m, BODY, fillet_outline(pts, rad, step=40), PIVOT_PLATE_T, "alu", side_mat(PIVOT_PLATE_X), bevel=0.006,
          segs=2, mirror=True)
@@ -353,39 +366,36 @@ def pivot_plates(m):
     xo = PIVOT_PLATE_X + PIVOT_PLATE_T / 2
     m.lathe(BODY, [(0.0, 0.0), (0.024, 0.0), (0.024, 0.006), (0.019, 0.010), (0.0, 0.010)], "dark_alu",
             matrix=look((xo, p.y, p.z), XAXIS), segments=12, mirror=True)
-    hexbolt(m, BODY, (xo + 0.016, p.y, p.z), XAXIS, 0.009, 0.006, mirror=True)
+    hexbolt(m, BODY, (xo + 0.0125, p.y, p.z), XAXIS, 0.009, 0.006, mirror=True)  # seated on the cap
     # lower bolts holding the plate to the cradle
     for y, z in ((0.072, 0.468), (0.180, 0.540)):
         hexbolt(m, BODY, (xo + 0.002, y, z), XAXIS, 0.0075, 0.006, mirror=True)
 
 
 def subframe(m):
-    """Tubular aluminium rear subframe: upper rails under the seat to the tail (which ends just behind the
-    rear axle, spec.TAIL_END), lower struts."""
-    rail = [(0.104, 0.180, 0.772), (0.096, 0.330, 0.780), (0.080, 0.520, 0.790), (0.066, 0.640, 0.796)]
-    pipe(m, BODY, rail, 0.0125, "alu", radii=[0, 0.15, 0.2, 0], segments=12, mirror=True)
-    strut = [(0.128, 0.205, 0.560), (0.112, 0.300, 0.660), (0.090, 0.430, 0.783)]
+    """Tubular aluminium rear subframe: upper rails (spec.SUBFRAME_RAIL) under the seat, rising at their
+    ends to carry the rear fender, two cross tubes and the lower struts."""
+    pipe(m, BODY, S.SUBFRAME_RAIL, S.SUBFRAME_RAIL_R, "alu", radii=[0, 0.15, 0.15, 0], segments=12, mirror=True)
+    strut = [(0.124, 0.176, 0.560), (0.110, 0.290, 0.664), (0.090, 0.430, 0.784)]
     pipe(m, BODY, strut, 0.0115, "alu", radii=[0, 0.12, 0], segments=12, mirror=True)
-    for y, z, half in ((0.470, 0.786, 0.088), (0.632, 0.796, 0.067)):
-        m.cylinder(BODY, 0.009, 2 * half, "alu", matrix=look((0, y, z), XAXIS), segments=12)
-    # tail-light / fender mounting tabs at the rail ends
-    blk(m, BODY, (0.008, 0.03, 0.022), "alu", frame_mat((0.060, 0.650, 0.803), (1, 0, 0), (0, 1, 0)), mirror=True)
+    for y in S.SUBFRAME_CROSS_Y:
+        x, z = S.subframe_rail_at(y)
+        m.cylinder(BODY, 0.009, 2 * x, "alu", matrix=look((0, y, z), XAXIS), segments=12)
 
 
 # =============================================================================== power train
 
 def battery(m):
-    """Battery case in the frame loop (spec.BATTERY_CENTRE / BATTERY_SIZE)."""
+    """Battery case in the frame loop (spec.BATTERY_CENTRE / BATTERY_SIZE) with vertical slats on its sides."""
     c, sz = S.BATTERY_CENTRE, S.BATTERY_SIZE
     outline = [(c.y + u, c.z + v) for (u, v) in rounded_rect(sz.y, sz.z, 0.022, 3)]
     slab(m, BODY, outline, sz.x, "battery", side_mat(c.x), bevel=0.008, segs=2)
-    # moulded ribs and a label band on each side face
-    for dz in (-0.09, -0.03, 0.03):
-        rbox(m, BODY, (sz.y - 0.07, 0.010, 0.006), "battery",
-             frame_mat((sz.x / 2 + 0.001, c.y + 0.008, c.z + dz), (0, 1, 0), (0, 0, 1)), r=0.003, bevel=0.0, cs=1,
+    # vertical cooling slats on each side face, seen through the frame window (as on the real pack)
+    for k in range(5):
+        y = -0.118 + 0.046 * k
+        rbox(m, BODY, (0.013, 0.205, 0.007), "dark_alu",
+             frame_mat((sz.x / 2 + 0.0015, y, 0.605), (0, 1, 0), (0, 0, 1)), r=0.004, bevel=0.0015, cs=2, segs=1,
              mirror=True)
-    rbox(m, BODY, (0.20, 0.05, 0.004), "grey", frame_mat((sz.x / 2 + 0.0005, c.y + 0.008, c.z + 0.135), (0, 1, 0),
-                                                         (0, 0, 1)), r=0.004, bevel=0.0, cs=1, mirror=True)
     # charge port cap on the front face
     m.cylinder(BODY, 0.016, 0.012, "black", matrix=look((0.045, c.y - sz.y / 2 - 0.004, c.z + 0.06), (0, -1, 0)),
                segments=12)
@@ -418,22 +428,25 @@ def motor(m):
             outline.append((c.y + rad * math.cos(a + f * da), c.z + rad * math.sin(a + f * da)))
     slab(m, BODY, outline, x1 - x0, "battery", side_mat((x0 + x1) / 2), bevel=0.0, caps=False)
     # right end cap (dark alu) with a centre boss
-    prof = [(r - 0.003, 0.0), (r - 0.003, -0.010), (r - 0.010, -0.017), (0.060, -0.019),
+    # (it starts with a flat ring over the fin ends, so the open ends of the fin valleys are covered)
+    prof = [(r + 0.0005, 0.0), (r - 0.003, 0.0), (r - 0.003, -0.010), (r - 0.010, -0.017), (0.060, -0.019),
             (0.034, -0.020), (0.030, -0.026), (0.0, -0.027)]
     m.lathe(BODY, prof, "dark_alu", matrix=look((x0, c.y, c.z), XAXIS), segments=24)
     for k in range(6):
         a = 2 * math.pi * k / 6 + 0.3
         hexbolt(m, BODY, (x0 - 0.019, c.y + 0.072 * math.cos(a), c.z + 0.072 * math.sin(a)), XAXIS, 0.0055, 0.006)
     # left end ring tapering into the gearbox case
-    prof = [(r - 0.006, 0.0), (r - 0.003, 0.002), (0.080, 0.008)]
+    prof = [(r + 0.0005, 0.0), (r - 0.003, 0.002), (0.080, 0.008)]
     m.lathe(BODY, prof, "dark_alu", matrix=look((x1, c.y, c.z), XAXIS), segments=20)
     # mounting lugs from the lower beams down to the motor (both sides)
     for y in (c.y - 0.055, c.y + 0.055):
         blk(m, BODY, (0.014, 0.03, 0.07), "alu", frame_mat((0.098, y, c.z + 0.065), (1, 0, 0), (0, 1, 0)),
             mirror=True)
     # phase cable from the motor up the back of the battery to the controller
-    pipe(m, BODY, [(-0.045, c.y + 0.07, c.z + 0.06), (-0.06, 0.15, 0.52), (-0.06, 0.165, 0.69),
-                   (-0.04, 0.27, 0.73)], 0.009, "black", radii=[0, 0.05, 0.05, 0], segments=8, step=25)
+    # (it passes outside the shock's preload collar, then into the controller's front end)
+    pipe(m, BODY, [(-0.045, c.y + 0.07, c.z + 0.06), (-0.06, 0.15, 0.52), (-0.066, 0.170, 0.69),
+                   (-0.062, 0.245, 0.735), (-0.035, 0.300, 0.735)], 0.009, "black", radii=[0, 0.05, 0.05, 0.04, 0],
+         segments=8, step=25)
     m.cylinder(BODY, 0.013, 0.02, "dark_alu", matrix=look((-0.045, c.y + 0.066, c.z + 0.056), (0, 0.6, 0.8)),
                segments=10)
 
@@ -473,23 +486,23 @@ def front_sprocket(m, teeth=20):
 
 
 def skid_plate(m):
-    """Aluminium bash plate under the motor: a bent plate with low side walls, bolted to the frame."""
-    path = [(0, -0.188, 0.452), (0, -0.168, 0.300), (0, -0.090, 0.262), (0, 0.075, 0.262), (0, 0.112, 0.292)]
+    """Black bash plate under the motor: a bent plate with low side lips, bolted to the frame."""
+    path = [(0, -0.182, 0.400), (0, -0.168, 0.300), (0, -0.090, 0.262), (0, 0.075, 0.262), (0, 0.112, 0.292)]
     pts, _ = fillet_path(path, [0, 0.05, 0.06, 0.03, 0], step=14)
-    m.sweep(BODY, pts, rounded_rect(0.184, 0.005, 0.0024, 1), "dark_alu", lateral=XAXIS)
-    # side walls follow the plate's outline, 26 mm tall
-    lo = [(p.y, p.z) for p in pts]
-    wall = []
+    m.sweep(BODY, pts, rounded_rect(0.184, 0.005, 0.0024, 1), "black", lateral=XAXIS)
+    # side lips follow the plate's outline, 11 mm tall (a swept strip: no long sliver triangles)
+    lip = []
     for i, p in enumerate(pts):
         a, b = pts[max(i - 1, 0)], pts[min(i + 1, len(pts) - 1)]
         t = (b - a).normalized()
         nrm = Vector((0.0, -t.z, t.y))  # inward/up, square to the plate
         if nrm.z < 0 and abs(t.z) < 0.5:
             nrm = -nrm
-        q = p + nrm * 0.026
-        wall.append((q.y, q.z))
-    outline = lo + list(reversed(wall))
-    slab(m, BODY, outline, 0.004, "dark_alu", side_mat(0.090), bevel=0.0, mirror=True)
+        lip.append(Vector((0.090, p.y, p.z)) + nrm * 0.0075)
+    m.sweep(BODY, lip, rounded_rect(0.004, 0.011, 0.0015, 1), "black", lateral=XAXIS, mirror=True)
+    # two brackets from the front lip up to the frame's front cross tube
+    blk(m, BODY, (0.014, 0.005, 0.068), "black", frame_mat((0.060, -0.177, 0.428), (1, 0, 0), (0, 1, 0)),
+        mirror=True)
 
 
 # =============================================================================== rider controls
@@ -518,7 +531,7 @@ def footpegs(m):
     for dy in (-0.022, 0.022):
         mat = frame_mat((x0, f.y + dy, f.z), (1, 0, 0), (0, 0, 1))
         slab(m, BODY, rail, 0.006, "dark_alu", mat, bevel=0.0, mirror=True)
-    for u in (0.012, 0.050, 0.086):
+    for u in (0.012, 0.045, 0.075):  # all within the side rails' length
         blk(m, BODY, (0.008, 0.040, 0.014), "dark_alu", frame_mat((x0 + u, f.y, f.z - 0.001), (1, 0, 0),
                                                                  (0, 1, 0)), mirror=True)
 
@@ -546,27 +559,32 @@ def kickstand(m):
 # =============================================================================== rear shock
 
 def rear_shock(m):
-    """Coil-over shock from the frame (top) to the swingarm clevis (bottom); body up, shaft down."""
+    """Coil-over shock from the frame (top) to the swingarm clevis (bottom); body up, shaft down.
+
+    It is split so the suspension can move: "Shock" (body, top eye, preload collar and spring; pivot
+    spec.SHOCK_TOP) and "ShockRod" (lower eye, rod end, spring seat and chrome shaft; pivot
+    spec.SHOCK_BOTTOM, it rides on the swingarm). Aimed at each other, the shaft slides into the body.
+    """
     bot, top = S.SHOCK_BOTTOM, S.SHOCK_TOP
     ax = (top - bot).normalized()
     ln = (top - bot).length
     base = look(bot, ax, up=(0, 1, 0))
     # eyes (bushings along X)
-    m.cylinder(BODY, 0.0155, 0.022, "dark_alu", matrix=look(bot, XAXIS), segments=12)
-    m.cylinder(BODY, 0.0165, 0.026, "dark_alu", matrix=look(top, XAXIS), segments=12)
+    m.cylinder(ROD, 0.0155, 0.022, "dark_alu", matrix=look(bot, XAXIS), segments=12)
+    m.cylinder(SHOCK, 0.0165, 0.026, "dark_alu", matrix=look(top, XAXIS), segments=12)
     # rod end + lower spring seat
-    m.lathe(BODY, [(0.012, 0.012), (0.013, 0.040), (0.035, 0.043), (0.036, 0.050), (0.030, 0.054),
-                   (0.008, 0.055)], "dark_alu", matrix=base, segments=14)
-    # chrome shaft
-    m.lathe(BODY, [(0.0079, 0.052), (0.0079, 0.180)], "chrome", matrix=base, segments=12)
+    m.lathe(ROD, [(0.012, 0.012), (0.013, 0.040), (0.035, 0.043), (0.036, 0.050), (0.030, 0.054),
+                  (0.008, 0.055)], "dark_alu", matrix=base, segments=14)
+    # chrome shaft (its top end runs on inside the body, so it stays hidden as the shock compresses)
+    m.lathe(ROD, [(0.0079, 0.052), (0.0079, 0.230), (0.0, 0.230)], "chrome", matrix=base, segments=12)
     # body with seal head and top cap
-    m.lathe(BODY, [(0.0079, 0.168), (0.020, 0.168), (0.023, 0.176), (0.023, 0.340), (0.019, 0.350),
-                   (0.016, 0.352), (0.016, ln - 0.012)], "battery", matrix=base, segments=14)
+    m.lathe(SHOCK, [(0.0079, 0.168), (0.020, 0.168), (0.023, 0.176), (0.023, 0.340), (0.019, 0.350),
+                    (0.016, 0.352), (0.016, ln - 0.012)], "battery", matrix=base, segments=14)
     # preload collar
-    m.lathe(BODY, [(0.023, 0.296), (0.033, 0.297), (0.034, 0.306), (0.033, 0.315), (0.023, 0.316)], "dark_alu",
+    m.lathe(SHOCK, [(0.023, 0.296), (0.033, 0.297), (0.034, 0.306), (0.033, 0.315), (0.023, 0.316)], "dark_alu",
             matrix=base, segments=14)
     # the coil spring: a wire swept along a helix with closed end coils
-    m.tube(BODY, spring_helix(bot, ax, 0.0285, 0.054, 0.296, 6.0, 9, 0.0055), 0.0055, "black", segments=6)
+    m.tube(SHOCK, spring_helix(bot, ax, 0.0285, 0.054, 0.296, 6.0, 9, 0.0055), 0.0055, "black", segments=6)
 
 
 def spring_helix(base, axis, r, s0, s1, turns, per_turn, wire):
@@ -595,9 +613,9 @@ def spring_helix(base, axis, r, s0, s1, turns, per_turn, wire):
 
 def frame_brake_hose(m):
     """Rear brake hose on the frame: from the pivot area up the right rear section to a clip."""
-    pts = [(-0.104, 0.188, 0.452), (-0.106, 0.205, 0.560), (-0.104, 0.215, 0.700), (-0.098, 0.150, 0.738)]
+    pts = [(-0.104, 0.188, 0.452), (-0.106, 0.198, 0.560), (-0.106, 0.190, 0.680), (-0.112, 0.166, 0.735)]
     pipe(m, BODY, pts, 0.0042, "black", radii=[0, 0.05, 0.04, 0], segments=6, step=30)
-    rbox(m, BODY, (0.006, 0.014, 0.012), "black", frame_mat((-0.101, 0.207, 0.640), (1, 0, 0), (0, 1, 0)),
+    rbox(m, BODY, (0.006, 0.014, 0.012), "black", frame_mat((-0.103, 0.197, 0.620), (1, 0, 0), (0, 1, 0)),
          r=0.002, bevel=0.0, cs=1)
 
 

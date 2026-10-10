@@ -1,5 +1,7 @@
 # Void Hydra pet (Roblox)
 
+**Vehicles:** a mid-poly Sur-Ron Light Bee X electric dirt bike, Roblox-ready, is in [`blender/vehicles/SurRonLightBee/`](blender/vehicles/SurRonLightBee/README.md).
+
 **More pets:** five more void pets (VoidPup, ShadowBat, CrystalFox, NebulaOwl, RuneGolem) are in [`blender/pets/`](blender/pets/README.md).
 
 **Blender model:** see [`blender/`](blender/README.md) for the `.blend`, an FBX ready for the Roblox 3D Importer, and renders. `PetFollower` uses that model automatically once it's imported as `ReplicatedStorage.VoidHydraModel`. Without it, the follower falls back to the Part-built version below.
