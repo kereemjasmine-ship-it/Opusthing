@@ -1,5 +1,7 @@
 # Void Hydra pet (Roblox)
 
+**More pets:** five more void pets (VoidPup, ShadowBat, CrystalFox, NebulaOwl, RuneGolem) are in [`blender/pets/`](blender/pets/README.md).
+
 **Blender model:** see [`blender/`](blender/README.md) for the `.blend`, an FBX ready for the Roblox 3D Importer, and renders. `PetFollower` uses that model automatically once it's imported as `ReplicatedStorage.VoidHydraModel`. Without it, the follower falls back to the Part-built version below.
 
 A five-headed void hydra pet built only from Parts. The body uses Plastic with Studs surfaces, and the eyes, collars and summoning circle use Neon. It hovers over a spinning summoning circle, its necks sway, and glowing shards orbit around it.

@@ -1,13 +1,15 @@
 -- ImportedPet (ModuleScript, ReplicatedStorage)
--- Drives the Blender-made Void Hydra after it has been imported into Studio
--- (blender/export/VoidHydra.fbx). It has the same interface as VoidHydra:
---   local pet = ImportedPet.new(ReplicatedStorage.VoidHydraModel)
+-- Drives any Blender-made void pet after it has been imported into Studio
+-- (blender/export/VoidHydra.fbx and blender/pets/<Name>/export/<Name>.fbx).
+-- It has the same interface as VoidHydra:
+--   local pet = ImportedPet.new(ReplicatedStorage.PetModels.VoidPup)
 --   pet.Model.Parent = workspace
 --   pet:Update(feetCFrame, dt) -- every frame
 --
 -- MeshParts are recognised by the names the importer gives them, which come
--- from the Blender objects: Body, Tail, Neck1..5, Circle_*, Shards_*, and a
--- _NeonPink / _NeonMagenta / _NeonViolet suffix on every glowing piece.
+-- from the Blender objects: body parts (Body, Head, Tail, WingL...), Circle*
+-- (base rings and halos, spun), Shards* (orbiting bits), and a _Neon<Colour>
+-- suffix on every glowing piece.
 
 local ImportedPet = {}
 ImportedPet.__index = ImportedPet
@@ -15,10 +17,17 @@ ImportedPet.__index = ImportedPet
 -- If the pet faces backwards after importing, change this to CFrame.Angles(0, math.pi, 0).
 ImportedPet.Facing = CFrame.identity
 
+-- Every glow colour used by the void pet family (same hexes as the Blender palettes).
 local NEON_COLORS = {
-	NeonMagenta = Color3.fromRGB(227, 92, 255),
-	NeonPink = Color3.fromRGB(255, 139, 240),
-	NeonViolet = Color3.fromRGB(166, 77, 255),
+	NeonMagenta = Color3.fromHex("e35cff"), -- VoidHydra
+	NeonPink = Color3.fromHex("ff8bf0"), -- VoidHydra, VoidPup, ShadowBat, RuneGolem
+	NeonViolet = Color3.fromHex("a64dff"), -- VoidHydra, VoidPup
+	NeonCyan = Color3.fromHex("4de1ff"), -- ShadowBat
+	NeonIce = Color3.fromHex("4d8eff"), -- CrystalFox
+	NeonLilac = Color3.fromHex("7d5eff"), -- CrystalFox
+	NeonTeal = Color3.fromHex("3ff2c8"), -- NebulaOwl
+	NeonGold = Color3.fromHex("ffcf4d"), -- NebulaOwl
+	NeonAmber = Color3.fromHex("ff9a3c"), -- RuneGolem
 }
 
 local function kindOf(name: string): string
@@ -42,8 +51,17 @@ function ImportedPet.new(template: Model)
 	self._cframes = {}
 	self._neon = {}
 
-	-- The pet's origin is the centre of the summoning circle, on the ground.
+	-- The pet's origin is the centre of its base ring if it has one (the hydra's
+	-- tail pushes its bounding box off-centre), else the bounding box centre.
 	local circle = model:FindFirstChild("Circle_NeonPink", true)
+	if not circle then
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d.Name:find("^Circle_") then
+				circle = d
+				break
+			end
+		end
+	end
 	local boxCFrame, boxSize = model:GetBoundingBox()
 	local bottom = boxCFrame.Position.Y - boxSize.Y / 2
 	local centre = if circle and circle:IsA("BasePart") then circle.Position else boxCFrame.Position
