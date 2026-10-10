@@ -45,15 +45,17 @@ def steer_point(t):
     return FRONT_AXLE - STEER_FWD * FORK_OFFSET + STEER_DIR * t
 
 
-LOWER_CLAMP = steer_point(0.66)  # centre of the lower triple clamp on the steering axis
-TOP_CLAMP = steer_point(0.84)
-HEAD_TUBE = (steer_point(0.68), steer_point(0.82))  # frame head tube ends (frame part)
+# Clamp heights fitted to the reference photo: top clamp ~0.97 m, bar ends ~1.06 m above the ground
+# (the real bike is 1.04 m tall overall).
+LOWER_CLAMP = steer_point(0.58)  # centre of the lower triple clamp on the steering axis
+TOP_CLAMP = steer_point(0.74)
+HEAD_TUBE = (steer_point(0.60), steer_point(0.72))  # frame head tube ends (frame part)
 FORK_LEG_X = 0.085  # each fork leg centre at x = +-FORK_LEG_X, on the fork_point() line
 FORK_OUTER_RADIUS = 0.027  # gold upper (outer) tube of the upside-down fork
 FORK_INNER_RADIUS = 0.019  # chrome stanchion below it
-FORK_SPLIT_T = 0.40  # gold outer tube covers t = FORK_SPLIT_T .. FORK_TOP_T, stanchion below
-FORK_TOP_T = 0.87
-HANDLEBAR_CENTRE = TOP_CLAMP + Vector((0.0, 0.012, 0.065))
+FORK_SPLIT_T = 0.32  # gold outer tube covers t = FORK_SPLIT_T .. FORK_TOP_T, stanchion below
+FORK_TOP_T = 0.77
+HANDLEBAR_CENTRE = TOP_CLAMP + Vector((0.0, 0.039, 0.045))  # low bar, just behind the fork caps
 HANDLEBAR_HALF_WIDTH = 0.39
 NUMBER_PLATE_CENTRE = LOWER_CLAMP + STEER_FWD * 0.10 + STEER_DIR * 0.03
 
@@ -61,7 +63,7 @@ NUMBER_PLATE_CENTRE = LOWER_CLAMP + STEER_FWD * 0.10 + STEER_DIR * 0.03
 SWINGARM_PIVOT = Vector((0.0, 0.15, 0.42))
 SWINGARM_ARM_X = 0.115  # each swingarm arm centre at +-x (arm about 0.03 thick)
 SHOCK_TOP = Vector((0.0, 0.21, 0.77))
-SHOCK_BOTTOM = Vector((0.0, 0.33, 0.41))  # on the swingarm
+SHOCK_BOTTOM = Vector((0.0, 0.31, 0.415))  # on the swingarm (eye clears the rear tyre)
 MOTOR_CENTRE = Vector((0.0, -0.01, 0.37))  # motor axis runs along X
 MOTOR_RADIUS = 0.09
 MOTOR_HALF_WIDTH = 0.08
@@ -72,7 +74,7 @@ FOOTPEG = Vector((0.20, 0.13, 0.30))  # left peg; right is mirrored
 SEAT_FRONT = Vector((0.0, -0.12, 0.85))  # top surface of the seat nose
 SEAT_REAR = Vector((0.0, 0.52, 0.89))
 SEAT_MAX_HALF_WIDTH = 0.12
-TAIL_END = Vector((0.0, 0.93, 0.90))  # tip of the rear fender
+TAIL_END = Vector((0.0, 0.69, 0.89))  # tip of the rear fender (just behind the rear axle, as in the photo)
 
 # -- groups ------------------------------------------------------------------------
 # Each group is one Roblox MeshPart; its origin is the pivot listed here.
@@ -102,7 +104,7 @@ PALETTE_ENTRIES = [
     ("rubber", "141414", 0.0, 0.92),  # tyres, grips
     ("alu", "c3c7cc", 0.9, 0.32),  # frame, swingarm (raw aluminium)
     ("dark_alu", "4b5058", 0.85, 0.38),  # clamps, hubs, rims, motor caps
-    ("gold", "d1a24a", 1.0, 0.30),  # fork outer tubes
+    ("gold", "9c7c4c", 1.0, 0.30),  # fork outer tubes (bronze gold, as in the photo)
     ("chrome", "e1e4e8", 1.0, 0.12),  # fork stanchions, shock shaft
     ("steel", "9ea3aa", 1.0, 0.35),  # discs, spokes, chain, bolts
     ("battery", "2a2c31", 0.3, 0.50),  # battery case, motor body
