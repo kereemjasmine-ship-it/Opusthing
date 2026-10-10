@@ -3,7 +3,8 @@
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
-      "VoidHydra": { "$path": "src/ReplicatedStorage/VoidHydra.lua" }
+      "VoidHydra": { "$path": "src/ReplicatedStorage/VoidHydra.lua" },
+      "ImportedPet": { "$path": "src/ReplicatedStorage/ImportedPet.lua" }
     },
     "StarterPlayer": {
       "StarterPlayerScripts": {

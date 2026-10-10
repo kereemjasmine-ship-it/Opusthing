@@ -1,5 +1,7 @@
 -- PetFollower (LocalScript, StarterPlayerScripts)
 -- Gives every player in the server a Void Hydra that follows them.
+-- Uses the Blender model if a Model named VoidHydraModel is in
+-- ReplicatedStorage (see blender/README.md), otherwise builds the pet from Parts.
 -- Pets are built and animated on each client, so movement is smooth and
 -- costs the server nothing.
 
@@ -8,6 +10,8 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local VoidHydra = require(ReplicatedStorage:WaitForChild("VoidHydra"))
+local ImportedPet = require(ReplicatedStorage:WaitForChild("ImportedPet"))
+local importedModel = ReplicatedStorage:FindFirstChild("VoidHydraModel")
 
 local FOLLOW_OFFSET = Vector3.new(4.5, 0, 4) -- studs: right of and behind the player
 local FOLLOW_SPEED = 8 -- higher = snappier
@@ -47,7 +51,7 @@ local function addPet(player: Player, character: Model)
 	if not hrp or not character.Parent then
 		return
 	end
-	local pet = VoidHydra.new(PET_CONFIG)
+	local pet = if importedModel then ImportedPet.new(importedModel) else VoidHydra.new(PET_CONFIG)
 	pet.Model.Name = player.Name .. "_VoidHydra"
 	pet.Model.Parent = folder
 	active[player] = { pet = pet, hrp = hrp, cframe = nil }

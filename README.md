@@ -1,10 +1,13 @@
 # Void Hydra pet (Roblox)
 
+**Blender model:** see [`blender/`](blender/README.md) for the `.blend`, an FBX ready for the Roblox 3D Importer, and renders. `PetFollower` uses that model automatically once it's imported as `ReplicatedStorage.VoidHydraModel`. Without it, the follower falls back to the Part-built version below.
+
 A five-headed void hydra pet built only from Parts. The body uses Plastic with Studs surfaces, and the eyes, collars and summoning circle use Neon. It hovers over a spinning summoning circle, its necks sway, and glowing shards orbit around it.
 
 ## Install (no Rojo)
 
 1. In Studio, add a **ModuleScript** to `ReplicatedStorage`, name it `VoidHydra`, and paste in `src/ReplicatedStorage/VoidHydra.lua`.
+   For the Blender model, also add `src/ReplicatedStorage/ImportedPet.lua` as a ModuleScript named `ImportedPet`.
 2. Add a **LocalScript** to `StarterPlayer > StarterPlayerScripts`, name it `PetFollower`, and paste in `src/StarterPlayer/StarterPlayerScripts/PetFollower.client.lua`.
 3. Press Play. Every player gets a hydra that follows them.
 
